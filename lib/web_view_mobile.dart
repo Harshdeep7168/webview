@@ -28,6 +28,7 @@ class _PlatformWebViewState extends State<PlatformWebView> {
       WebViewPlatform.instance = WebKitWebViewPlatform();
     }
 
+    // Create controller with file upload capability
     controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
@@ -51,8 +52,18 @@ class _PlatformWebViewState extends State<PlatformWebView> {
             debugPrint('WebView error: ${error.description}');
           },
         ),
-      )
-      ..loadRequest(Uri.parse(widget.url));
+      );
+
+    // Configure Android-specific settings
+    if (controller.platform is AndroidWebViewController) {
+      final androidController = controller.platform as AndroidWebViewController;
+      
+      // Enable file access on Android webview
+      AndroidWebViewController.enableDebugging(true);
+    }
+
+    // Load the URL
+    controller.loadRequest(Uri.parse(widget.url));
   }
 
   @override
