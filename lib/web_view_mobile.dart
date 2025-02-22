@@ -3,7 +3,6 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import 'dart:io' show Platform;
-import 'profile_settings_page.dart';
 
 class PlatformWebView extends StatefulWidget {
   final String url;
@@ -68,13 +67,19 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           
           // Create a button next to each file input
           const button = document.createElement('button');
-          button.innerText = 'Choose File';
+          button.innerText = 'Upload Photo';
           button.style.marginLeft = '10px';
+          button.style.padding = '8px 16px';
+          button.style.backgroundColor = '#1976d2';
+          button.style.color = 'white';
+          button.style.border = 'none';
+          button.style.borderRadius = '4px';
+          button.style.cursor = 'pointer';
+          
           button.addEventListener('click', (e) => {
             e.preventDefault();
-            if (window.location.pathname.includes('settings')) {
-              window.flutterInAppWebViewPlatformReady && window.flutter_inappwebview.callHandler('openProfileSettings');
-            }
+            // Navigate to the settings page with profile tab
+            window.location.href = '/user/settings';
           });
           
           input.parentNode.insertBefore(button, input.nextSibling);
@@ -83,15 +88,6 @@ class _PlatformWebViewState extends State<PlatformWebView> {
     ''';
 
     controller.runJavaScript(script);
-  }
-
-  void _handleProfileSettingsNavigation() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const ProfileSettingsPage(),
-      ),
-    );
   }
 
   @override
@@ -105,17 +101,18 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           const Center(
             child: CircularProgressIndicator(),
           ),
-        // Add floating action button for profile settings
+        // Add a floating action button for quick settings access
         Positioned(
           bottom: 16,
           right: 16,
           child: FloatingActionButton(
-            onPressed: _handleProfileSettingsNavigation,
+            onPressed: () {
+              // Navigate to settings page
+              controller.loadRequest(
+                  Uri.parse('https://demo.deskos.net/user/settings'));
+            },
             backgroundColor: Colors.blue,
-            child: const Icon(
-              Icons.person,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.settings, color: Colors.white),
           ),
         ),
       ],
