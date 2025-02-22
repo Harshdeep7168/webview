@@ -21,32 +21,31 @@ class _PlatformWebViewState extends State<PlatformWebView> {
   void initState() {
     super.initState();
 
-    // Initialize platform-specific controller
-    if (Platform.isAndroid) {
-      WebViewPlatform.instance = AndroidWebViewPlatform();
-    } else if (Platform.isIOS) {
-      WebViewPlatform.instance = WebKitWebViewPlatform();
+    // Create platform-specific controller
+    late final PlatformWebViewControllerCreationParams params;
+    
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params = WebKitWebViewControllerCreationParams();
+    } else {
+      params = PlatformWebViewControllerCreationParams();
     }
 
-    // Create controller with file upload capability
-    controller = WebViewController()
+    controller = WebViewController.fromPlatformCreationParams(params);
+
+    // Configure controller settings
+    controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
-            if (mounted) {
-              setState(() {
-                isLoading = true;
-              });
-            }
+            setState(() => isLoading = true);
           },
           onPageFinished: (String url) {
-            if (mounted) {
-              setState(() {
-                isLoading = false;
-              });
-            }
+            setState(() => isLoading = false);
+            
+            // Inject JavaScript to handle file inputs
+            _injectFileInputScript();
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint('WebView error: ${error.description}');
@@ -54,16 +53,33 @@ class _PlatformWebViewState extends State<PlatformWebView> {
         ),
       );
 
-    // Configure Android-specific settings
-    if (controller.platform is AndroidWebViewController) {
-      final androidController = controller.platform as AndroidWebViewController;
-      
-      // Enable file access on Android webview
-      AndroidWebViewController.enableDebugging(true);
-    }
-
     // Load the URL
     controller.loadRequest(Uri.parse(widget.url));
+  }
+
+  // Inject JavaScript to make file inputs read-only
+  void _injectFileInputScript() {
+    const script = '''
+      (function() {
+        const fileInputs = document.querySelectorAll('input[type="file"]');
+        fileInputs.forEach(input => {
+          input.setAttribute('disabled', 'true');
+          
+          // Create a button next to each file input
+          const button = document.createElement('button');
+          button.innerText = 'Choose File';
+          button.style.marginLeft = '10px';
+          button.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.flutter_inappwebview.callHandler('fileUpload');
+          });
+          
+          input.parentNode.insertBefore(button, input.nextSibling);
+        });
+      })();
+    ''';
+
+    controller.runJavaScript(script);
   }
 
   @override
