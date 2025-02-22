@@ -3,6 +3,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import 'dart:io' show Platform;
+import 'profile_settings_page.dart';
 
 class PlatformWebView extends StatefulWidget {
   final String url;
@@ -23,7 +24,7 @@ class _PlatformWebViewState extends State<PlatformWebView> {
 
     // Create platform-specific controller
     late final PlatformWebViewControllerCreationParams params;
-    
+
     if (WebViewPlatform.instance is WebKitWebViewPlatform) {
       params = WebKitWebViewControllerCreationParams();
     } else {
@@ -43,7 +44,7 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           },
           onPageFinished: (String url) {
             setState(() => isLoading = false);
-            
+
             // Inject JavaScript to handle file inputs
             _injectFileInputScript();
           },
@@ -71,7 +72,9 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           button.style.marginLeft = '10px';
           button.addEventListener('click', (e) => {
             e.preventDefault();
-            window.flutter_inappwebview.callHandler('fileUpload');
+            if (window.location.pathname.includes('settings')) {
+              window.flutterInAppWebViewPlatformReady && window.flutter_inappwebview.callHandler('openProfileSettings');
+            }
           });
           
           input.parentNode.insertBefore(button, input.nextSibling);
@@ -80,6 +83,15 @@ class _PlatformWebViewState extends State<PlatformWebView> {
     ''';
 
     controller.runJavaScript(script);
+  }
+
+  void _handleProfileSettingsNavigation() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ProfileSettingsPage(),
+      ),
+    );
   }
 
   @override
@@ -93,6 +105,19 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           const Center(
             child: CircularProgressIndicator(),
           ),
+        // Add floating action button for profile settings
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: FloatingActionButton(
+            onPressed: _handleProfileSettingsNavigation,
+            backgroundColor: Colors.blue,
+            child: const Icon(
+              Icons.person,
+              color: Colors.white,
+            ),
+          ),
+        ),
       ],
     );
   }
