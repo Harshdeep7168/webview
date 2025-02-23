@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
-import 'dart:convert';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({Key? key}) : super(key: key);
@@ -23,8 +22,13 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   Future<void> _pickImage() async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1000,
+        maxHeight: 1000,
+        imageQuality: 85,
+      );
+
       if (image != null) {
         setState(() {
           _imageFile = File(image.path);
@@ -47,16 +51,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     try {
       var request = http.MultipartRequest(
         'PUT',
-        Uri.parse('https://demo.deskos.net/api/v1/accounts/user/update-general-settings/'),
+        Uri.parse(
+            'https://demo.deskos.net/api/v1/accounts/user/update-general-settings/'),
       );
 
-      // Add form fields
       request.fields['firstName'] = _firstNameController.text;
       request.fields['lastName'] = _lastNameController.text;
       request.fields['email'] = _emailController.text;
       request.fields['mobileNumber'] = _mobileController.text;
 
-      // Add image if selected
       if (_imageFile != null) {
         request.files.add(await http.MultipartFile.fromPath(
           'photo',
@@ -64,28 +67,33 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         ));
       }
 
-      // Add your auth token here
-      request.headers['Authorization'] = 'Bearer YOUR_AUTH_TOKEN';
+      // Get token from shared preferences or your auth service
+      // request.headers['Authorization'] = 'Bearer $token';
 
       var response = await request.send();
-      var responseData = await response.stream.bytesToString();
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!')),
-        );
-        Navigator.pop(context);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile updated successfully!')),
+          );
+          Navigator.pop(context);
+        }
       } else {
         throw Exception('Failed to update profile');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to update profile')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update profile')),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -94,85 +102,138 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile Settings'),
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text(
+                'Your Details',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+
               // Profile Image
-              GestureDetector(
-                onTap: _pickImage,
-                child: CircleAvatar(
-                  radius: 50,
-                  backgroundImage: _imageFile != null 
-                    ? FileImage(_imageFile!) 
-                    : null,
-                  child: _imageFile == null 
-                    ? const Icon(Icons.add_a_photo, size: 40)
-                    : null,
+              Center(
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage:
+                          _imageFile != null ? FileImage(_imageFile!) : null,
+                      child: _imageFile == null
+                          ? const Icon(Icons.person,
+                              size: 50, color: Colors.grey)
+                          : null,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: CircleAvatar(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        radius: 18,
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt, size: 18),
+                          color: Colors.white,
+                          onPressed: _pickImage,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'Allowed *.jpeg, *.jpg, *.png, *.gif\nmax size of 3.1MB',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
 
               // Form Fields
-              TextFormField(
-                controller: _firstNameController,
-                decoration: const InputDecoration(labelText: 'First Name'),
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'Please enter first name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 10),
-
-              TextFormField(
-                controller: _lastNameController,
-                decoration: const InputDecoration(labelText: 'Last Name'),
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'Please enter last name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 10),
-
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'Please enter email';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 10),
-
-              TextFormField(
-                controller: _mobileController,
-                decoration: const InputDecoration(labelText: 'Mobile Number'),
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'Please enter mobile number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // Submit Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submitForm,
-                child: _isLoading 
-                  ? const CircularProgressIndicator()
-                  : const Text('Save Changes'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _firstNameController,
+                              decoration: const InputDecoration(
+                                labelText: 'First Name',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) =>
+                                  value?.isEmpty ?? true ? 'Required' : null,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _lastNameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Last Name',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) =>
+                                  value?.isEmpty ?? true ? 'Required' : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _mobileController,
+                        decoration: const InputDecoration(
+                          labelText: 'Mobile Number',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.phone,
+                        validator: (value) =>
+                            value?.isEmpty ?? true ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) =>
+                            value?.isEmpty ?? true ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _submitForm,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: _isLoading
+                              ? const CircularProgressIndicator()
+                              : const Text('Save Changes'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

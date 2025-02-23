@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import 'profile_settings_page.dart'; // Import the profile settings page
 import 'dart:io' show Platform;
 
 class PlatformWebView extends StatefulWidget {
@@ -78,8 +79,8 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           
           button.addEventListener('click', (e) => {
             e.preventDefault();
-            // Navigate to the settings page with profile tab
-            window.location.href = '/user/settings';
+            // Call Flutter method for navigation
+            window.flutter.postMessage('openProfileSettings');
           });
           
           input.parentNode.insertBefore(button, input.nextSibling);
@@ -88,6 +89,13 @@ class _PlatformWebViewState extends State<PlatformWebView> {
     ''';
 
     controller.runJavaScript(script);
+  }
+
+  void _openProfileSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ProfileSettingsPage()),
+    );
   }
 
   @override
@@ -103,14 +111,12 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           ),
         // Add a floating action button for quick settings access
         Positioned(
-          bottom: 16,
+          bottom: MediaQuery.of(context).padding.bottom +
+              kBottomNavigationBarHeight +
+              16,
           right: 16,
           child: FloatingActionButton(
-            onPressed: () {
-              // Navigate to settings page
-              controller.loadRequest(
-                  Uri.parse('https://demo.deskos.net/user/settings'));
-            },
+            onPressed: _openProfileSettings,
             backgroundColor: Colors.blue,
             child: const Icon(Icons.settings, color: Colors.white),
           ),
