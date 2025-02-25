@@ -1,6 +1,6 @@
 name: deskos
 description: A Flutter WebView application that works across all platforms
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -29,18 +29,21 @@ flutter:
   uses-material-design: true
 
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: true
+  adaptive_icon_background: "#673AB7" # Purple color matching your logo
+  adaptive_icon_foreground: "assets/icon/app_icon.png" # Use existing icon as foreground
   ios: true
-  image_path: "assets/icon/app_icon.png" # You need to convert your SVG to PNG
+  image_path: "assets/icon/app_icon.png"
+  remove_alpha_ios: true # For iOS, removes transparency and applies shape
   web:
     generate: true
     image_path: "assets/icon/app_icon.png"
-    background_color: "#ffffff"
-    theme_color: "#673ab7"
+    background_color: "#673AB7"
+    theme_color: "#673AB7"
   windows:
     generate: true
     image_path: "assets/icon/app_icon.png"
-    icon_size: 48 # Min size in px
+    icon_size: 48
   macos:
     generate: true
     image_path: "assets/icon/app_icon.png"
