@@ -20,6 +20,7 @@ class _PlatformWebViewState extends State<PlatformWebView> {
   late final WebViewController controller;
   bool isLoading = true;
   String? authToken;
+  String currentUrl = '';
 
   @override
   void initState() {
@@ -50,11 +51,22 @@ class _PlatformWebViewState extends State<PlatformWebView> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
-            setState(() => isLoading = true);
+            setState(() {
+              isLoading = true;
+              currentUrl = url;
+            });
             print("CUSTOM_LOG: Page loading started: $url");
+            
+            // Check if URL contains user/settings and navigate to profile settings
+            if (url.contains('/user/settings')) {
+              _openProfileSettings();
+            }
           },
           onPageFinished: (String url) {
-            setState(() => isLoading = false);
+            setState(() {
+              isLoading = false;
+              currentUrl = url;
+            });
             print("CUSTOM_LOG: Page finished loading: $url");
 
             // Extract token when user is on a page after login
@@ -68,6 +80,23 @@ class _PlatformWebViewState extends State<PlatformWebView> {
 
             // Inject JavaScript to handle file inputs
             _injectFileInputScript();
+            
+            // Check again for user/settings path in case it was missed in onPageStarted
+            if (url.contains('/user/settings')) {
+              _openProfileSettings();
+            }
+          },
+          onUrlChange: (UrlChange change) {
+            final url = change.url;
+            if (url != null) {
+              setState(() => currentUrl = url);
+              print("CUSTOM_LOG: URL changed to: $url");
+              
+              // Check if URL contains user/settings and navigate to profile settings
+              if (url.contains('/user/settings')) {
+                _openProfileSettings();
+              }
+            }
           },
           onWebResourceError: (WebResourceError error) {
             print("CUSTOM_LOG: WebView error: ${error.description}");
@@ -80,6 +109,12 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           },
           // Add navigation handling for external URLs
           onNavigationRequest: (NavigationRequest request) {
+            // Handle user/settings path
+            if (request.url.contains('/user/settings')) {
+              _openProfileSettings();
+              return NavigationDecision.prevent;
+            }
+            
             // Handle external links (email, phone, etc.)
             if (request.url.startsWith('mailto:') || 
                 request.url.startsWith('tel:') || 
@@ -96,6 +131,11 @@ class _PlatformWebViewState extends State<PlatformWebView> {
         'Flutter',
         onMessageReceived: (JavaScriptMessage message) {
           try {
+            if (message.message == 'openProfileSettings') {
+              _openProfileSettings();
+              return;
+            }
+            
             final data = jsonDecode(message.message);
             
             if (data is Map) {
@@ -108,9 +148,9 @@ class _PlatformWebViewState extends State<PlatformWebView> {
                 });
               } else if (data['type'] == 'token_error') {
                 print("CUSTOM_LOG: Token error: ${data['value']}");
+              } else if (data['type'] == 'navigate' && data['to'] == 'profileSettings') {
+                _openProfileSettings();
               }
-            } else if (message.message == 'openProfileSettings') {
-              _openProfileSettings();
             }
           } catch (e) {
             print("CUSTOM_LOG: Error processing JavaScript message: $e");
@@ -126,6 +166,52 @@ class _PlatformWebViewState extends State<PlatformWebView> {
       print("CUSTOM_LOG: Error loading URL: $e");
       // Handle invalid URL gracefully
     }
+    
+    // Add JavaScript to monitor URL changes
+    _injectUrlChangeMonitor();
+  }
+  
+  // Inject script to monitor URL changes and detect user/settings path
+  void _injectUrlChangeMonitor() {
+    const script = '''
+      (function() {
+        // Monitor URL changes using mutation observer
+        let lastUrl = location.href;
+        
+        // Create a new observer to watch for URL changes
+        const observer = new MutationObserver(() => {
+          if (location.href !== lastUrl) {
+            lastUrl = location.href;
+            console.log('URL changed to: ' + lastUrl);
+            
+            // Check if the URL contains /user/settings
+            if (lastUrl.includes('/user/settings')) {
+              console.log('Detected user/settings in URL');
+              window.Flutter.postMessage(JSON.stringify({
+                type: 'navigate',
+                to: 'profileSettings'
+              }));
+            }
+          }
+        });
+        
+        // Start observing the document with configured parameters
+        observer.observe(document, { subtree: true, childList: true });
+        
+        // Also check the current URL
+        if (location.href.includes('/user/settings')) {
+          console.log('Initial URL contains user/settings');
+          window.Flutter.postMessage(JSON.stringify({
+            type: 'navigate',
+            to: 'profileSettings'
+          }));
+        }
+      })();
+    ''';
+
+    controller.runJavaScript(script).catchError((error) {
+      print("CUSTOM_LOG: Error injecting URL monitor script: $error");
+    });
   }
 
   // Extract authentication token from localStorage with improved error handling
@@ -261,13 +347,21 @@ class _PlatformWebViewState extends State<PlatformWebView> {
   }
 
   void _openProfileSettings() {
-    // Remove the authToken named parameter if it's not defined in ProfileSettingsPage
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const ProfileSettingsPage(),
-      ),
-    );
+    // Only navigate if we're not already on the profile settings page
+    // This prevents multiple navigation attempts
+    if (!Navigator.of(context).canPop() || 
+        !(ModalRoute.of(context)?.settings.name == '/profile_settings')) {
+      print("CUSTOM_LOG: Navigating to profile settings page");
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          settings: const RouteSettings(name: '/profile_settings'),
+          builder: (context) => const ProfileSettingsPage(),
+        ),
+      );
+    } else {
+      print("CUSTOM_LOG: Already on profile settings page, skipping navigation");
+    }
   }
 
   @override
