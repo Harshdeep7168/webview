@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- This is a 108x108 viewBox which is standard for Android adaptive icons -->
+  
+  <!-- Purple square with transparent center -->
+  <path d="M0,0 L108,0 L108,108 L0,108 Z M36,36 L36,72 L72,72 L72,36 Z" 
+        fill="#673AB7" fill-rule="evenodd"/>
+  
+  <!-- White lines (borders) -->
+  <path d="M0,0 L36,36 M108,0 L72,36 M0,108 L36,72 M108,108 L72,72" 
+        stroke="white" stroke-width="2" fill="none"/>
+</svg>

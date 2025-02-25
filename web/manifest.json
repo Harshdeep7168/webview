@@ -3,7 +3,7 @@
     "short_name": "webview",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#673AB7",
+    "background_color": "#ffffff",
     "theme_color": "#673AB7",
     "description": "A new Flutter project.",
     "orientation": "portrait-primary",
