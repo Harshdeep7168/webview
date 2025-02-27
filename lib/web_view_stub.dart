@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
-// This is a stub implementation that won't be used at runtime
-class PlatformWebView extends StatelessWidget {
+/// Abstract class for platform-specific WebView implementations
+abstract class WebViewStub extends StatefulWidget {
+  const WebViewStub({Key? key}) : super(key: key);
+}
+
+/// Stub implementation that will be replaced by platform-specific implementations
+class PlatformWebView extends StatefulWidget {
   final String url;
   
   const PlatformWebView({Key? key, required this.url}) : super(key: key);
-
+  
   @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text('WebView not supported on this platform'),
-    );
+  State<PlatformWebView> createState() {
+    throw UnimplementedError('PlatformWebView is not implemented for this platform');
   }
 }

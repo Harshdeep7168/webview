@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'web_view_stub.dart';
+import 'service_request_page.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
@@ -7,7 +10,8 @@ import 'dart:convert';
 import 'profile_settings_page.dart';
 import 'dart:io' show Platform;
 
-class PlatformWebView extends StatefulWidget {
+// This class implements the abstract PlatformWebView from web_view_stub.dart
+class PlatformWebView extends WebViewStub {
   final String url;
 
   const PlatformWebView({Key? key, required this.url}) : super(key: key);
@@ -21,6 +25,9 @@ class _PlatformWebViewState extends State<PlatformWebView> {
   bool isLoading = true;
   String? authToken;
   String currentUrl = '';
+  
+  // Add this to track current view mode
+  bool _showFlutterServiceRequests = false;
 
   @override
   void initState() {
@@ -54,6 +61,9 @@ class _PlatformWebViewState extends State<PlatformWebView> {
             setState(() {
               isLoading = true;
               currentUrl = url;
+              
+              // Check for service requests URL
+              _checkForServiceRequestsUrl(url);
             });
             print("CUSTOM_LOG: Page loading started: $url");
             
@@ -66,6 +76,9 @@ class _PlatformWebViewState extends State<PlatformWebView> {
             setState(() {
               isLoading = false;
               currentUrl = url;
+              
+              // Check for service requests URL
+              _checkForServiceRequestsUrl(url);
             });
             print("CUSTOM_LOG: Page finished loading: $url");
 
@@ -89,7 +102,12 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           onUrlChange: (UrlChange change) {
             final url = change.url;
             if (url != null) {
-              setState(() => currentUrl = url);
+              setState(() {
+                currentUrl = url;
+                
+                // Check for service requests URL
+                _checkForServiceRequestsUrl(url);
+              });
               print("CUSTOM_LOG: URL changed to: $url");
               
               // Check if URL contains user/settings and navigate to profile settings
@@ -109,6 +127,14 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           },
           // Add navigation handling for external URLs
           onNavigationRequest: (NavigationRequest request) {
+            // Handle service requests URL
+            if (request.url.contains('/user/service-requests')) {
+              setState(() {
+                _showFlutterServiceRequests = true;
+              });
+              return NavigationDecision.prevent;
+            }
+            
             // Handle user/settings path
             if (request.url.contains('/user/settings')) {
               _openProfileSettings();
@@ -150,6 +176,10 @@ class _PlatformWebViewState extends State<PlatformWebView> {
                 print("CUSTOM_LOG: Token error: ${data['value']}");
               } else if (data['type'] == 'navigate' && data['to'] == 'profileSettings') {
                 _openProfileSettings();
+              } else if (data['type'] == 'navigate' && data['to'] == 'serviceRequests') {
+                setState(() {
+                  _showFlutterServiceRequests = true;
+                });
               }
             }
           } catch (e) {
@@ -171,7 +201,22 @@ class _PlatformWebViewState extends State<PlatformWebView> {
     _injectUrlChangeMonitor();
   }
   
-  // Inject script to monitor URL changes and detect user/settings path
+  // Check if URL is service requests page
+  void _checkForServiceRequestsUrl(String url) {
+    if (url.contains('/user/service-requests')) {
+      setState(() {
+        _showFlutterServiceRequests = true;
+      });
+    } else if (_showFlutterServiceRequests) {
+      // If we're currently showing service requests and URL changes to something else
+      // We should switch back to web view
+      setState(() {
+        _showFlutterServiceRequests = false;
+      });
+    }
+  }
+  
+  // Inject script to monitor URL changes and detect both user/settings path and service requests path
   void _injectUrlChangeMonitor() {
     const script = '''
       (function() {
@@ -192,6 +237,15 @@ class _PlatformWebViewState extends State<PlatformWebView> {
                 to: 'profileSettings'
               }));
             }
+            
+            // Check if the URL contains /user/service-requests
+            if (lastUrl.includes('/user/service-requests')) {
+              console.log('Detected service-requests in URL');
+              window.Flutter.postMessage(JSON.stringify({
+                type: 'navigate',
+                to: 'serviceRequests'
+              }));
+            }
           }
         });
         
@@ -204,6 +258,14 @@ class _PlatformWebViewState extends State<PlatformWebView> {
           window.Flutter.postMessage(JSON.stringify({
             type: 'navigate',
             to: 'profileSettings'
+          }));
+        }
+        
+        if (location.href.includes('/user/service-requests')) {
+          console.log('Initial URL contains service-requests');
+          window.Flutter.postMessage(JSON.stringify({
+            type: 'navigate',
+            to: 'serviceRequests'
           }));
         }
       })();
@@ -363,9 +425,30 @@ class _PlatformWebViewState extends State<PlatformWebView> {
       print("CUSTOM_LOG: Already on profile settings page, skipping navigation");
     }
   }
+  
+  // This method navigates back to the dashboard in the WebView
+  void _navigateToDashboard() {
+    setState(() {
+      _showFlutterServiceRequests = false;
+    });
+    
+    controller.loadRequest(Uri.parse('https://demo.deskos.net/user/dashboard/'));
+  }
 
   @override
   Widget build(BuildContext context) {
+    // If we should show our custom Flutter page for service requests, return that
+    if (_showFlutterServiceRequests) {
+      return ServiceRequestsPage(
+        onBack: () {
+          setState(() {
+            _showFlutterServiceRequests = false;
+          });
+        },
+      );
+    }
+
+    // Otherwise show the WebView
     return WillPopScope(
       onWillPop: () async {
         // Handle back button press to navigate within WebView if possible
